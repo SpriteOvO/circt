@@ -614,14 +614,15 @@ LogicalResult LowerAnnotationsPass::solveWiringProblems(ApplyState &state) {
     moduleModifications[sinkModule].connectionMap[index] = sink;
 
     // Record ports that should be added to each module along the LCA path.
-    auto tpe = RefType::get(cast<FIRRTLBaseType>(problem.sink.getType()));
+    auto baseType = problem.sink.getType();
+    auto refType = RefType::get(cast<FIRRTLBaseType>(baseType));
     for (auto sourceInst : sources) {
       auto mod = cast<FModuleOp>(instanceGraph.getReferencedModule(sourceInst));
       moduleModifications[mod].portsToAdd.push_back(
           {index,
            {StringAttr::get(
                 context, state.getNamespace(mod).newName(problem.newNameHint)),
-            tpe, Direction::Out}});
+            refType, Direction::Out}});
     }
     for (auto sinkInst : sinks) {
       auto mod = cast<FModuleOp>(instanceGraph.getReferencedModule(sinkInst));
@@ -629,7 +630,7 @@ LogicalResult LowerAnnotationsPass::solveWiringProblems(ApplyState &state) {
           {index,
            {StringAttr::get(
                 context, state.getNamespace(mod).newName(problem.newNameHint)),
-            tpe, Direction::In}});
+            baseType, Direction::In}});
     }
   }
 
