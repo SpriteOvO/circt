@@ -80,12 +80,10 @@ LogicalResult CreateSiFiveMetadataPass::emitMemoryMetadata() {
     // Metadata needs to be printed for memories which are candidates for
     // macro replacement. The requirements for macro replacement::
     // 1. read latency and write latency of one.
-    // 2. only one readwrite port or write port.
-    // 3. zero or one read port.
-    // 4. undefined read-under-write behavior.
+    // 2. one or more read port.
+    // 3. undefined read-under-write behavior.
     if (!((mem.getReadLatency() == 1 && mem.getWriteLatency() == 1) &&
-          (mem.getNumWritePorts() + mem.getNumReadWritePorts() == 1) &&
-          (mem.getNumReadPorts() <= 1) && width > 0))
+          (mem.getNumReadPorts() != 0) && width > 0))
       return;
 
     // Compute the mask granularity.
@@ -123,9 +121,9 @@ LogicalResult CreateSiFiveMetadataPass::emitMemoryMetadata() {
       jsonStream.attribute("depth", (int64_t)mem.getDepth());
       jsonStream.attribute("width", (int64_t)width);
       jsonStream.attribute("masked", isMasked);
-      jsonStream.attribute("read", mem.getNumReadPorts() > 0);
-      jsonStream.attribute("write", mem.getNumWritePorts() > 0);
-      jsonStream.attribute("readwrite", mem.getNumReadWritePorts() > 0);
+      jsonStream.attribute("read", mem.getNumReadPorts());
+      jsonStream.attribute("write", mem.getNumWritePorts());
+      jsonStream.attribute("readwrite", mem.getNumReadWritePorts());
       if (isMasked)
         jsonStream.attribute("mask_granularity", (int64_t)maskGran);
       jsonStream.attributeArray("extra_ports", [&] {
