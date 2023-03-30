@@ -228,8 +228,6 @@ struct FirMemory {
   bool isSeqMem() const {
     if (readLatency != 1 || writeLatency != 1)
       return false;
-    if (numReadPorts == 0)
-      return false;
     return dataWidth > 0;
   }
 };

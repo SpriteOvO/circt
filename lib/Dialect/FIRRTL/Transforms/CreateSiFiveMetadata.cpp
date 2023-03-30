@@ -83,7 +83,7 @@ LogicalResult CreateSiFiveMetadataPass::emitMemoryMetadata() {
     // 2. one or more read port.
     // 3. undefined read-under-write behavior.
     if (!((mem.getReadLatency() == 1 && mem.getWriteLatency() == 1) &&
-          (mem.getNumReadPorts() != 0) && width > 0))
+          width > 0))
       return;
 
     // Compute the mask granularity.

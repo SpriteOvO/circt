@@ -699,7 +699,7 @@ void HWMemSimImplPass::runOnOperation() {
       // 2. one or more read port.
       // 3. undefined read-under-write behavior.
       if (replSeqMem && ((mem.readLatency == 1 && mem.writeLatency == 1) &&
-                         (mem.numReadPorts != 0) && mem.dataWidth > 0)) {
+                         mem.dataWidth > 0)) {
         builder.create<HWModuleExternOp>(oldModule.getLoc(), nameAttr,
                                          oldModule.getPorts());
       } else {
