@@ -148,6 +148,10 @@ bool hwAttrIsAInnerRefAttr(MlirAttribute attr) {
   return unwrap(attr).isa<InnerRefAttr>();
 }
 
+bool hwAttrIsAInnerSymAttr(MlirAttribute attr) {
+  return unwrap(attr).isa<InnerSymAttr>();
+}
+
 MlirAttribute hwInnerRefAttrGet(MlirAttribute moduleName,
                                 MlirAttribute innerSym) {
   auto moduleNameAttr = unwrap(moduleName).cast<StringAttr>();
@@ -161,6 +165,11 @@ MlirAttribute hwInnerRefAttrGetName(MlirAttribute innerRefAttr) {
 
 MlirAttribute hwInnerRefAttrGetModule(MlirAttribute innerRefAttr) {
   return wrap((Attribute)unwrap(innerRefAttr).cast<InnerRefAttr>().getModule());
+}
+
+MlirAttribute hwInnerSymAttrGet(MlirAttribute sym) {
+  auto symAttr = unwrap(sym).cast<StringAttr>();
+  return wrap(InnerSymAttr::get(symAttr));
 }
 
 bool hwAttrIsAGlobalRefAttr(MlirAttribute attr) {
