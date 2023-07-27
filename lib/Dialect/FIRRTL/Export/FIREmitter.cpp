@@ -862,6 +862,10 @@ void Emitter::emitExpression(Value value) {
   }
 
   auto op = value.getDefiningOp();
+  if (!op) {
+    ps << "<CIRCT-ERROR>";
+    return;
+  }
   assert(op && "value must either be a block arg or the result of an op");
   TypeSwitch<Operation *>(op)
       .Case<
