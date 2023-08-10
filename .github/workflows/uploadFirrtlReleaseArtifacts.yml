@@ -117,7 +117,7 @@ jobs:
         env:
           mode: release
           assert: OFF
-          shared: OFF
+          shared: ON
           stats: ON
         run: |
           json=$(echo '${{ toJSON(env) }}' | jq -c)
@@ -236,6 +236,11 @@ jobs:
           ninja -C build install-firtool
           file install/*
           file install/bin/*
+
+      - name: TEMP-tree
+        run: |
+          ${{ matrix.runner.setup }}
+          tree
 
       # Specify bash for the Windows runner to work
       - name: Name Install Directory
