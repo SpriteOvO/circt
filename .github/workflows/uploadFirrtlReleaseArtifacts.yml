@@ -274,8 +274,9 @@ jobs:
         id: name_archive
         shell: bash
         run: |
-          FIRTOOL_NAME=firrtl-bin-${{ matrix.runner.os }}-${{ matrix.runner.arch }}.${{ matrix.runner.archive }}
-          CIRCT_FULL_NAME=circt-full-${{ matrix.runner.os }}-${{ matrix.runner.arch }}.${{ matrix.runner.archive }}
+          NAME_SUFFIX=${{ matrix.runner.os }}-${{ matrix.runner.arch }}.${{ matrix.runner.archive }}
+          FIRTOOL_NAME=firrtl-bin-$NAME_SUFFIX
+          CIRCT_FULL_NAME=circt-full-$NAME_SUFFIX
           echo "firtool_name=$FIRTOOL_NAME" >> "$GITHUB_OUTPUT"
           echo "circt_full_name=$CIRCT_FULL_NAME" >> "$GITHUB_OUTPUT"
 
@@ -293,7 +294,7 @@ jobs:
         shell: pwsh
         run: |
           mv install-firtool ${{ steps.name_dir.outputs.value }}/firtool
-          mv install-circt-full ${{ steps.name_dir.outputs.value }}/circt
+          mv install-circt-full ${{ steps.name_dir.outputs.value }}/circt-full
           Compress-Archive -Path ${{ steps.name_dir.outputs.value }} -DestinationPath ${{ steps.name_archive.outputs.firtool_name }}/firtool
           Compress-Archive -Path ${{ steps.name_dir.outputs.value }} -DestinationPath ${{ steps.name_archive.outputs.circt_full_name }}/circt-full
 
