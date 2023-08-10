@@ -250,7 +250,7 @@ jobs:
         run: |
           ${{ matrix.runner.setup }}
           ninja -C build install
-          mv install install-circt
+          mv install install-circt-full
           file install-circt-full/*
           file install-circt-full/bin/*
 
