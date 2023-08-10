@@ -74,6 +74,7 @@ jobs:
           cont: '\'
           setup:
           cmake-args: -DCMAKE_C_COMPILER=clang-12 -DCMAKE_CXX_COMPILER=clang++-12
+          shared: ON
         run: |
           json=$(echo '${{ toJSON(env) }}' | jq -c)
           echo $json
@@ -91,6 +92,7 @@ jobs:
           cont: '\'
           setup:
           cmake-args:
+          shared: ON
         run: |
           json=$(echo '${{ toJSON(env) }}' | jq -c)
           echo $json
@@ -108,6 +110,7 @@ jobs:
           cont: '`'
           setup: ./utils/find-vs.ps1
           cmake-args:
+          shared: OFF # `BUILD_SHARED_LIBS` options is not supported on Windows
         run: |
           json=$(echo '${{ toJSON(env) }}' | jq -c)
           echo $json
@@ -117,7 +120,6 @@ jobs:
         env:
           mode: release
           assert: OFF
-          shared: OFF
           stats: ON
         run: |
           json=$(echo '${{ toJSON(env) }}' | jq -c)
@@ -203,7 +205,7 @@ jobs:
           cmake -G Ninja -S "$(pwd)/../llvm/llvm" ${{ matrix.runner.cont }}
             ${{ matrix.runner.cmake-args }} ${{ matrix.runner.cont }}
             -DCMAKE_BUILD_TYPE=${{ matrix.build_config.mode }} ${{ matrix.runner.cont }}
-            -DBUILD_SHARED_LIBS=${{ matrix.build_config.shared }} ${{ matrix.runner.cont }}
+            -DBUILD_SHARED_LIBS=${{ matrix.runner.shared }} ${{ matrix.runner.cont }}
             -DLLVM_BUILD_TOOLS=ON ${{ matrix.runner.cont }}
             -DLLVM_BUILD_EXAMPLES=OFF ${{ matrix.runner.cont }}
             -DLLVM_ENABLE_ASSERTIONS=${{ matrix.build_config.assert }} ${{ matrix.runner.cont }}
@@ -236,6 +238,11 @@ jobs:
           ninja -C build install-firtool
           file install/*
           file install/bin/*
+
+      - name: TEMP-tree
+        run: |
+          ${{ matrix.runner.setup }}
+          tree
 
       # Specify bash for the Windows runner to work
       - name: Name Install Directory
