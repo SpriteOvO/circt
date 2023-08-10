@@ -236,10 +236,26 @@ jobs:
         run: |
           ${{ matrix.runner.setup }}
           ninja -C build install-firtool
-          file install/*
-          file install/bin/*
+          mv install install-firtool
+          file install-firtool/*
+          file install-firtool/bin/*
 
       - name: TEMP-tree
+        if: github.event_name != 'workflow_dispatch' || inputs.os == 'linux'
+        run: |
+          ${{ matrix.runner.setup }}
+          tree
+
+      - name: Install CIRCT-full
+        run: |
+          ${{ matrix.runner.setup }}
+          ninja -C build install
+          mv install install-circt
+          file install-circt-full/*
+          file install-circt-full/bin/*
+
+      - name: TEMP-tree2
+        if: github.event_name != 'workflow_dispatch' || inputs.os == 'linux'
         run: |
           ${{ matrix.runner.setup }}
           tree
@@ -251,55 +267,85 @@ jobs:
         run: |
           BASE=$(git describe --tag)
           SANITIZED=$(echo -n $BASE | tr '/' '-')
+          mkdir $SANITIZED
           echo "value=$SANITIZED" >> "$GITHUB_OUTPUT"
 
       - name: Name Archive
         id: name_archive
         shell: bash
         run: |
-          NAME=firrtl-bin-${{ matrix.runner.os }}-${{ matrix.runner.arch }}.${{ matrix.runner.archive }}
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          FIRTOOL_NAME=firrtl-bin-${{ matrix.runner.os }}-${{ matrix.runner.arch }}.${{ matrix.runner.archive }}
+          CIRCT_FULL_NAME=circt-full-${{ matrix.runner.os }}-${{ matrix.runner.arch }}.${{ matrix.runner.archive }}
+          echo "firtool_name=$FIRTOOL_NAME" >> "$GITHUB_OUTPUT"
+          echo "circt_full_name=$CIRCT_FULL_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Package Binaries Linux and MacOS
         if: matrix.runner.os == 'macos' || matrix.runner.os == 'linux'
         run: |
-          mv install ${{ steps.name_dir.outputs.value }}
-          ${{ matrix.runner.tar }} ${{ steps.name_archive.outputs.name }} ${{ steps.name_dir.outputs.value }}
+          mv install-firtool ${{ steps.name_dir.outputs.value }}/firtool
+          mv install-circt-full ${{ steps.name_dir.outputs.value }}/circt-full
+          ${{ matrix.runner.tar }} ${{ steps.name_archive.outputs.firtool_name }} ${{ steps.name_dir.outputs.value }}/firtool
+          ${{ matrix.runner.tar }} ${{ steps.name_archive.outputs.circt_full_name }} ${{ steps.name_dir.outputs.value }}/circt-full
 
       # Not sure how to create a zip in bash on Windows so using powershell
       - name: Package Binaries Windows
         if: matrix.runner.os == 'windows'
         shell: pwsh
         run: |
-          mv install ${{ steps.name_dir.outputs.value }}
-          Compress-Archive -Path ${{ steps.name_dir.outputs.value }} -DestinationPath ${{ steps.name_archive.outputs.name }}
+          mv install-firtool ${{ steps.name_dir.outputs.value }}/firtool
+          mv install-circt-full ${{ steps.name_dir.outputs.value }}/circt
+          Compress-Archive -Path ${{ steps.name_dir.outputs.value }} -DestinationPath ${{ steps.name_archive.outputs.firtool_name }}/firtool
+          Compress-Archive -Path ${{ steps.name_dir.outputs.value }} -DestinationPath ${{ steps.name_archive.outputs.circt_full_name }}/circt-full
 
       # Specify bash for the Windows runner to work
       - name: Show Tarball
         shell: bash
         run: |
-          ls -l ${{ steps.name_archive.outputs.name }}
-          ${{ matrix.runner.sha256 }} ${{ steps.name_archive.outputs.name }} | cut -d ' ' -f1 > ${{ steps.name_archive.outputs.name }}.sha256
+          ls -l ${{ steps.name_archive.outputs.firtool_name }}
+          ${{ matrix.runner.sha256 }} ${{ steps.name_archive.outputs.firtool_name }} | cut -d ' ' -f1 > ${{ steps.name_archive.outputs.firtool_name }}.sha256
+          ls -l ${{ steps.name_archive.outputs.circt_full_name }}
+          ${{ matrix.runner.sha256 }} ${{ steps.name_archive.outputs.circt_full_name }} | cut -d ' ' -f1 > ${{ steps.name_archive.outputs.circt_full_name }}.sha256
 
-      - name: Upload Binary (Non-Tag)
+      - name: Upload Firtool Binary (Non-Tag)
         uses: actions/upload-artifact@v3
         if: github.ref_type != 'tag'
         with:
-          name: ${{ steps.name_archive.outputs.name }}
-          path: ${{ steps.name_archive.outputs.name }}
+          name: ${{ steps.name_archive.outputs.firtool_name }}
+          path: ${{ steps.name_archive.outputs.firtool_name }}
           retention-days: 7
-      - name: Upload SHA256 (Non-Tag)
+      - name: Upload Firtool SHA256 (Non-Tag)
         uses: actions/upload-artifact@v3
         if: github.ref_type != 'tag'
         with:
-          name: ${{ steps.name_archive.outputs.name }}.sha256
-          path: ${{ steps.name_archive.outputs.name }}.sha256
+          name: ${{ steps.name_archive.outputs.firtool_name }}.sha256
+          path: ${{ steps.name_archive.outputs.firtool_name }}.sha256
           retention-days: 7
-
-      - name: Upload Binaries (Tag)
+      - name: Upload Firtool Binaries (Tag)
         uses: AButler/upload-release-assets@v2.0
         if: github.ref_type == 'tag'
         with:
           # The * will grab the .sha256 as well
-          files: ${{ steps.name_archive.outputs.name }}*
+          files: ${{ steps.name_archive.outputs.firtool_name }}*
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload CIRCT-full Binary (Non-Tag)
+        uses: actions/upload-artifact@v3
+        if: github.ref_type != 'tag'
+        with:
+          name: ${{ steps.name_archive.outputs.circt_full_name }}
+          path: ${{ steps.name_archive.outputs.circt_full_name }}
+          retention-days: 7
+      - name: Upload CIRCT-full SHA256 (Non-Tag)
+        uses: actions/upload-artifact@v3
+        if: github.ref_type != 'tag'
+        with:
+          name: ${{ steps.name_archive.outputs.circt_full_name }}.sha256
+          path: ${{ steps.name_archive.outputs.circt_full_name }}.sha256
+          retention-days: 7
+      - name: Upload CIRCT-full Binaries (Tag)
+        uses: AButler/upload-release-assets@v2.0
+        if: github.ref_type == 'tag'
+        with:
+          # The * will grab the .sha256 as well
+          files: ${{ steps.name_archive.outputs.circt_full_name }}*
           repo-token: ${{ secrets.GITHUB_TOKEN }}
