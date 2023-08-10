@@ -241,7 +241,7 @@ jobs:
           file install-firtool/bin/*
 
       - name: TEMP-tree
-        if: github.event_name != 'workflow_dispatch' || inputs.os == 'linux'
+        if: inputs.os == 'linux'
         run: |
           ${{ matrix.runner.setup }}
           tree
@@ -255,7 +255,7 @@ jobs:
           file install-circt-full/bin/*
 
       - name: TEMP-tree2
-        if: github.event_name != 'workflow_dispatch' || inputs.os == 'linux'
+        if: inputs.os == 'linux'
         run: |
           ${{ matrix.runner.setup }}
           tree
