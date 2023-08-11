@@ -295,8 +295,8 @@ jobs:
         run: |
           mv install-firtool ${{ steps.name_dir.outputs.value }}/firtool
           mv install-circt-full ${{ steps.name_dir.outputs.value }}/circt-full
-          Compress-Archive -Path ${{ steps.name_dir.outputs.value }} -DestinationPath ${{ steps.name_archive.outputs.firtool_name }}/firtool
-          Compress-Archive -Path ${{ steps.name_dir.outputs.value }} -DestinationPath ${{ steps.name_archive.outputs.circt_full_name }}/circt-full
+          Compress-Archive -Path ${{ steps.name_dir.outputs.value }}/firtool -DestinationPath ${{ steps.name_archive.outputs.firtool_name }}
+          Compress-Archive -Path ${{ steps.name_dir.outputs.value }}/circt-full -DestinationPath ${{ steps.name_archive.outputs.circt_full_name }}
 
       # Specify bash for the Windows runner to work
       - name: Show Tarball
