@@ -1,4 +1,4 @@
-name: Upload Firrtl Release Artifacts
+name: Upload Release Artifacts
 
 on:
   release:
@@ -112,9 +112,12 @@ jobs:
           json=$(echo '${{ toJSON(env) }}' | jq -c)
           echo $json
           echo "out=$json" >> $GITHUB_OUTPUT
-      - name: Add Build Options
-        id: add-build-options
+      - name: Add Build Options for firtool
+        id: add-build-options-firtool
         env:
+          name: firtool
+          install_target: install-firtool
+          package_name_prefix: firtool-bin
           mode: release
           assert: OFF
           shared: OFF
@@ -123,10 +126,24 @@ jobs:
           json=$(echo '${{ toJSON(env) }}' | jq -c)
           echo $json
           echo "out=$json" >> $GITHUB_OUTPUT
+      - name: Add Build Options for CIRCT-full shared libs
+        id: add-build-options-circt-full-shared-libs
+        env:
+          name: CIRCT-full shared libs
+          install_target: install
+          package_name_prefix: circt-full-shared-libs
+          mode: release
+          assert: OFF
+          shared: ON
+          stats: ON
+        run: |
+          json=$(echo '${{ toJSON(env) }}' | jq -c)
+          echo $json
+          echo "out=$json" >> $GITHUB_OUTPUT
       - name: Build JSON Payloads
         id: build-json-payloads
         run: |
-          echo '${{ steps.add-build-options.outputs.out }}' | jq -sc . > options.json
+          echo '${{ steps.add-build-options-firtool.outputs.out }}' '${{ steps.add-build-options-circt-full-shared-libs.outputs.out }}' | jq -sc . > options.json
           echo build_configs=`cat options.json` >> $GITHUB_OUTPUT
 
           echo "Build Config Matrix" >> $GITHUB_STEP_SUMMARY
@@ -174,27 +191,37 @@ jobs:
     runs-on: ${{ matrix.runner.runner }}
     env: ${{ fromJSON(needs.choose-matrix.outputs.environment) }}
     steps:
+      - name: Check if skip
+        id: skip
+        shell: bash
+        if: ${{ matrix.build_config.name == 'CIRCT-full shared libs' && matrix.runner.os == 'windows' }} # `BUILD_SHARED_LIBS` option is not supported on Windows
+        run: |
+          echo "value=true" >> "$GITHUB_OUTPUT"
+
       # Clone the CIRCT repo and its submodules. Do shallow clone to save clone
       # time.
       - name: Get CIRCT
+        if: steps.skip.outputs.value != 'true'
         uses: actions/checkout@v3
         with:
           fetch-depth: 2
           submodules: "true"
       # We need unshallow CIRCT for later "git describe"
       - name: Unshallow CIRCT (but not LLVM)
+        if: steps.skip.outputs.value != 'true'
         run: |
           git fetch --unshallow --no-recurse-submodules
 
       - name: Setup Linux
-        if: matrix.runner.os == 'linux'
+        if: steps.skip.outputs.value != 'true' && matrix.runner.os == 'linux'
         run: sudo apt-get install ninja-build
 
       - name: Setup Ninja and GNU Tar Mac
-        if: matrix.runner.os == 'macos'
+        if: steps.skip.outputs.value != 'true' && matrix.runner.os == 'macos'
         run: brew install ninja gnu-tar
 
       - name: Configure CIRCT
+        if: steps.skip.outputs.value != 'true'
         run: |
           ${{ matrix.runner.setup }}
           mkdir build
@@ -225,21 +252,23 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="$(pwd)/../install"
 
       - name: Test CIRCT
-        if: env.runTests == 'true'
+        if: steps.skip.outputs.value != 'true' && env.runTests == 'true'
         run: |
           ${{ matrix.runner.setup }}
           ninja -C build check-circt check-circt-unit
 
-      - name: Install firtool
+      - name: Install ${{ matrix.build_config.name }}
+        if: steps.skip.outputs.value != 'true'
         run: |
           ${{ matrix.runner.setup }}
-          ninja -C build install-firtool
+          ninja -C build ${{ matrix.build_config.install_target }}
           file install/*
           file install/bin/*
 
       # Specify bash for the Windows runner to work
       - name: Name Install Directory
         id: name_dir
+        if: steps.skip.outputs.value != 'true'
         shell: bash
         run: |
           BASE=$(git describe --tag)
@@ -248,20 +277,21 @@ jobs:
 
       - name: Name Archive
         id: name_archive
+        if: steps.skip.outputs.value != 'true'
         shell: bash
         run: |
-          NAME=firrtl-bin-${{ matrix.runner.os }}-${{ matrix.runner.arch }}.${{ matrix.runner.archive }}
+          NAME=${{ matrix.build_config.package_name_prefix }}-${{ matrix.runner.os }}-${{ matrix.runner.arch }}.${{ matrix.runner.archive }}
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
       - name: Package Binaries Linux and MacOS
-        if: matrix.runner.os == 'macos' || matrix.runner.os == 'linux'
+        if: steps.skip.outputs.value != 'true' && (matrix.runner.os == 'macos' || matrix.runner.os == 'linux')
         run: |
           mv install ${{ steps.name_dir.outputs.value }}
           ${{ matrix.runner.tar }} ${{ steps.name_archive.outputs.name }} ${{ steps.name_dir.outputs.value }}
 
       # Not sure how to create a zip in bash on Windows so using powershell
       - name: Package Binaries Windows
-        if: matrix.runner.os == 'windows'
+        if: steps.skip.outputs.value != 'true' && matrix.runner.os == 'windows'
         shell: pwsh
         run: |
           mv install ${{ steps.name_dir.outputs.value }}
@@ -276,14 +306,14 @@ jobs:
 
       - name: Upload Binary (Non-Tag)
         uses: actions/upload-artifact@v3
-        if: github.ref_type != 'tag'
+        if: steps.skip.outputs.value != 'true' && github.ref_type != 'tag'
         with:
           name: ${{ steps.name_archive.outputs.name }}
           path: ${{ steps.name_archive.outputs.name }}
           retention-days: 7
       - name: Upload SHA256 (Non-Tag)
         uses: actions/upload-artifact@v3
-        if: github.ref_type != 'tag'
+        if: steps.skip.outputs.value != 'true' && github.ref_type != 'tag'
         with:
           name: ${{ steps.name_archive.outputs.name }}.sha256
           path: ${{ steps.name_archive.outputs.name }}.sha256
@@ -291,7 +321,7 @@ jobs:
 
       - name: Upload Binaries (Tag)
         uses: AButler/upload-release-assets@v2.0
-        if: github.ref_type == 'tag'
+        if: steps.skip.outputs.value != 'true' && github.ref_type == 'tag'
         with:
           # The * will grab the .sha256 as well
           files: ${{ steps.name_archive.outputs.name }}*
