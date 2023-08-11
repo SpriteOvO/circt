@@ -1,4 +1,4 @@
-name: Upload Firrtl Release Artifacts
+name: Upload Release Artifacts
 
 on:
   release:
@@ -112,9 +112,12 @@ jobs:
           json=$(echo '${{ toJSON(env) }}' | jq -c)
           echo $json
           echo "out=$json" >> $GITHUB_OUTPUT
-      - name: Add Build Options
-        id: add-build-options
+      - name: Add Build Options for firtool
+        id: add-build-options-firtool
         env:
+          name: firtool
+          install_target: install-firtool
+          package_name_prefix: firtool-bin
           mode: release
           assert: OFF
           shared: OFF
@@ -123,10 +126,24 @@ jobs:
           json=$(echo '${{ toJSON(env) }}' | jq -c)
           echo $json
           echo "out=$json" >> $GITHUB_OUTPUT
+      - name: Add Build Options for CIRCT-full shared libs
+        id: add-build-options-circt-full-shared-libs
+        env:
+          name: CIRCT-full shared libs
+          install_target: install
+          package_name_prefix: circt-full-shared-libs
+          mode: release
+          assert: OFF
+          shared: ON
+          stats: ON
+        run: |
+          json=$(echo '${{ toJSON(env) }}' | jq -c)
+          echo $json
+          echo "out=$json" >> $GITHUB_OUTPUT
       - name: Build JSON Payloads
         id: build-json-payloads
         run: |
-          echo '${{ steps.add-build-options.outputs.out }}' | jq -sc . > options.json
+          echo '${{ steps.add-build-options-firtool.outputs.out }}' '${{ steps.add-build-options-circt-full-shared-libs.outputs.out }}' | jq -sc . > options.json
           echo build_configs=`cat options.json` >> $GITHUB_OUTPUT
 
           echo "Build Config Matrix" >> $GITHUB_STEP_SUMMARY
@@ -173,6 +190,7 @@ jobs:
         runner: ${{ fromJSON(needs.choose-matrix.outputs.runners) }}
     runs-on: ${{ matrix.runner.runner }}
     env: ${{ fromJSON(needs.choose-matrix.outputs.environment) }}
+    if: matrix.build_config.name == 'CIRCT-full shared libs' && matrix.runner.os != 'windows' || matrix.build_config.name != 'CIRCT-full shared libs' # `BUILD_SHARED_LIBS` option is not supported on Windows
     steps:
       # Clone the CIRCT repo and its submodules. Do shallow clone to save clone
       # time.
@@ -230,10 +248,10 @@ jobs:
           ${{ matrix.runner.setup }}
           ninja -C build check-circt check-circt-unit
 
-      - name: Install firtool
+      - name: Install ${{ matrix.build_config.name }}
         run: |
           ${{ matrix.runner.setup }}
-          ninja -C build install-firtool
+          ninja -C build ${{ matrix.build_config.install_target }}
           file install/*
           file install/bin/*
 
@@ -250,7 +268,7 @@ jobs:
         id: name_archive
         shell: bash
         run: |
-          NAME=firrtl-bin-${{ matrix.runner.os }}-${{ matrix.runner.arch }}.${{ matrix.runner.archive }}
+          NAME=${{ matrix.build_config.package_name_prefix }}-${{ matrix.runner.os }}-${{ matrix.runner.arch }}.${{ matrix.runner.archive }}
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
       - name: Package Binaries Linux and MacOS
