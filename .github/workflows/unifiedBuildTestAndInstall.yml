@@ -95,6 +95,10 @@ on:
         description: "Install steps to run"
         required: false
         type: string
+      package_name_prefix:
+        description: "The prefix for package name"
+        required: true
+        type: string
       cmake_c_compiler:
         description: "The C compiler to use"
         required: false
@@ -196,7 +200,7 @@ jobs:
         if: inputs.install
         shell: bash
         run: |
-          NAME=firrtl-bin-${{ steps.name_dir.outputs.os }}-${{ steps.name_dir.outputs.arch }}.${{ steps.name_dir.outputs.archive }}
+          NAME=${{ inputs.package_name_prefix }}-${{ steps.name_dir.outputs.os }}-${{ steps.name_dir.outputs.arch }}.${{ steps.name_dir.outputs.archive }}
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
       - name: Package Binaries Linux and MacOS
         if: runner.os == 'macOS' || runner.os == 'Linux'
