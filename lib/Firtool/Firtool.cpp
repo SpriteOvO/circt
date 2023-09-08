@@ -14,12 +14,27 @@
 #include "circt/Dialect/SV/SVPasses.h"
 #include "circt/Dialect/Seq/SeqPasses.h"
 #include "circt/Support/Passes.h"
+#include "circt/Transforms/Passes.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
 using namespace llvm;
 using namespace circt;
+
+LogicalResult firtool::populateLowerAnnotations(mlir::PassManager &pm,
+                                                const FirtoolOptions &opt) {
+  // Legalize away "open" aggregates to hw-only versions.
+  pm.nest<firrtl::CircuitOp>().addPass(firrtl::createLowerOpenAggsPass());
+
+  pm.nest<firrtl::CircuitOp>().addPass(firrtl::createResolvePathsPass());
+
+  pm.nest<firrtl::CircuitOp>().addPass(firrtl::createLowerFIRRTLAnnotationsPass(
+      opt.disableAnnotationsUnknown, opt.disableAnnotationsClassless,
+      opt.lowerAnnotationsNoRefTypePorts));
+
+  return success();
+}
 
 LogicalResult firtool::populateCHIRRTLToLowFIRRTL(mlir::PassManager &pm,
                                                   const FirtoolOptions &opt,
@@ -240,6 +255,61 @@ LogicalResult firtool::populateHWToSV(mlir::PassManager &pm,
 
   // Check inner symbols and inner refs.
   pm.addPass(hw::createVerifyInnerRefNamespacePass());
+
+  return success();
+}
+
+LogicalResult
+firtool::populatePrepareForExportVerilog(mlir::PassManager &pm,
+                                         const FirtoolOptions &opt) {
+
+  // Legalize unsupported operations within the modules.
+  pm.nest<hw::HWModuleOp>().addPass(sv::createHWLegalizeModulesPass());
+
+  // Tidy up the IR to improve verilog emission quality.
+  if (!opt.disableOptimization)
+    pm.nest<hw::HWModuleOp>().addPass(sv::createPrettifyVerilogPass());
+
+  if (opt.stripFirDebugInfo)
+    pm.addPass(circt::createStripDebugInfoWithPredPass([](mlir::Location loc) {
+      if (auto fileLoc = loc.dyn_cast<FileLineColLoc>())
+        return fileLoc.getFilename().getValue().endswith(".fir");
+      return false;
+    }));
+
+  if (opt.stripDebugInfo)
+    pm.addPass(circt::createStripDebugInfoWithPredPass(
+        [](mlir::Location loc) { return true; }));
+
+  // Emit module and testbench hierarchy JSON files.
+  if (opt.exportModuleHierarchy)
+    pm.addPass(sv::createHWExportModuleHierarchyPass());
+
+  // Check inner symbols and inner refs.
+  pm.addPass(hw::createVerifyInnerRefNamespacePass());
+
+  return success();
+}
+
+LogicalResult firtool::populateExportVerilog(mlir::PassManager &pm,
+                                             const FirtoolOptions &opt,
+                                             llvm::raw_ostream &os) {
+  pm.addPass(createExportVerilogPass(os));
+
+  return success();
+}
+
+LogicalResult firtool::populateExportSplitVerilog(mlir::PassManager &pm,
+                                                  const FirtoolOptions &opt,
+                                                  llvm::StringRef directory) {
+  pm.addPass(createExportSplitVerilogPass(directory));
+
+  return success();
+}
+
+LogicalResult firtool::populateFinalizeIR(mlir::PassManager &pm,
+                                          const FirtoolOptions &opt) {
+  pm.addPass(firrtl::createFinalizeIRPass());
 
   return success();
 }

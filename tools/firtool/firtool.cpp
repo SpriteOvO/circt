@@ -34,7 +34,6 @@
 #include "circt/Support/LoweringOptionsParser.h"
 #include "circt/Support/Passes.h"
 #include "circt/Support/Version.h"
-#include "circt/Transforms/Passes.h"
 #include "mlir/Bytecode/BytecodeReader.h"
 #include "mlir/Bytecode/BytecodeWriter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -106,22 +105,6 @@ static cl::opt<bool>
                                "expected-* lines on the corresponding line"),
                       cl::init(false), cl::Hidden, cl::cat(mainCategory));
 
-static cl::opt<bool> disableAnnotationsClassless(
-    "disable-annotation-classless",
-    cl::desc("Ignore annotations without a class when parsing"),
-    cl::init(false), cl::cat(mainCategory));
-
-static cl::opt<bool> disableAnnotationsUnknown(
-    "disable-annotation-unknown",
-    cl::desc("Ignore unknown annotations when parsing"), cl::init(false),
-    cl::cat(mainCategory));
-
-static cl::opt<bool> lowerAnnotationsNoRefTypePorts(
-    "lower-annotations-no-ref-type-ports",
-    cl::desc("Create real ports instead of ref type ports when resolving "
-             "wiring problems inside the LowerAnnotations pass"),
-    cl::init(false), cl::Hidden, cl::cat(mainCategory));
-
 using InfoLocHandling = firrtl::FIRParserOptions::InfoLocHandling;
 static cl::opt<InfoLocHandling> infoLocHandling(
     cl::desc("Location tracking:"),
@@ -134,11 +117,6 @@ static cl::opt<InfoLocHandling> infoLocHandling(
             InfoLocHandling::PreferInfo, "prefer-info-locators",
             "Use @info locations when present, fallback to .fir locations")),
     cl::init(InfoLocHandling::PreferInfo), cl::cat(mainCategory));
-
-static cl::opt<bool> exportModuleHierarchy(
-    "export-module-hierarchy",
-    cl::desc("Export module and instance hierarchy as JSON"), cl::init(false),
-    cl::cat(mainCategory));
 
 static cl::opt<bool>
     scalarizeTopModule("scalarize-top-module",
@@ -213,16 +191,6 @@ static cl::opt<bool>
     verbosePassExecutions("verbose-pass-executions",
                           cl::desc("Log executions of toplevel module passes"),
                           cl::init(false), cl::cat(mainCategory));
-
-static cl::opt<bool> stripFirDebugInfo(
-    "strip-fir-debug-info",
-    cl::desc("Disable source fir locator information in output Verilog"),
-    cl::init(true), cl::cat(mainCategory));
-
-static cl::opt<bool> stripDebugInfo(
-    "strip-debug-info",
-    cl::desc("Disable source locator information in output Verilog"),
-    cl::init(false), cl::cat(mainCategory));
 
 static LoweringOptionsOption loweringOptions(mainCategory);
 
@@ -323,14 +291,8 @@ static LogicalResult processBuffer(
   if (failed(applyPassManagerCLOptions(pm)))
     return failure();
 
-  // Legalize away "open" aggregates to hw-only versions.
-  pm.nest<firrtl::CircuitOp>().addPass(firrtl::createLowerOpenAggsPass());
-
-  pm.nest<firrtl::CircuitOp>().addPass(firrtl::createResolvePathsPass());
-
-  pm.nest<firrtl::CircuitOp>().addPass(firrtl::createLowerFIRRTLAnnotationsPass(
-      disableAnnotationsUnknown, disableAnnotationsClassless,
-      lowerAnnotationsNoRefTypePorts));
+  if (failed(firtool::populateLowerAnnotations(pm, firtoolOptions)))
+    return failure();
 
   // If the user asked for --parse-only, stop after running LowerAnnotations.
   if (outputFormat == OutputParseOnly) {
@@ -361,52 +323,36 @@ static LogicalResult processBuffer(
   // Add passes specific to Verilog emission if we're going there.
   if (outputFormat == OutputVerilog || outputFormat == OutputSplitVerilog ||
       outputFormat == OutputIRVerilog) {
-    // Legalize unsupported operations within the modules.
-    pm.nest<hw::HWModuleOp>().addPass(sv::createHWLegalizeModulesPass());
-
-    // Tidy up the IR to improve verilog emission quality.
-    if (!firtoolOptions.disableOptimization)
-      pm.nest<hw::HWModuleOp>().addPass(sv::createPrettifyVerilogPass());
-
-    if (stripFirDebugInfo)
-      pm.addPass(
-          circt::createStripDebugInfoWithPredPass([](mlir::Location loc) {
-            if (auto fileLoc = loc.dyn_cast<FileLineColLoc>())
-              return fileLoc.getFilename().getValue().endswith(".fir");
-            return false;
-          }));
-
-    if (stripDebugInfo)
-      pm.addPass(circt::createStripDebugInfoWithPredPass(
-          [](mlir::Location loc) { return true; }));
-
-    // Emit module and testbench hierarchy JSON files.
-    if (exportModuleHierarchy)
-      pm.addPass(sv::createHWExportModuleHierarchyPass(outputFilename));
-
-    // Check inner symbols and inner refs.
-    pm.addPass(hw::createVerifyInnerRefNamespacePass());
+    if (failed(firtool::populatePrepareForExportVerilog(pm, firtoolOptions)))
+      return failure();
 
     // Emit a single file or multiple files depending on the output format.
     switch (outputFormat) {
     default:
       llvm_unreachable("can't reach this");
     case OutputVerilog:
-      pm.addPass(createExportVerilogPass((*outputFile)->os()));
+      if (failed(firtool::populateExportVerilog(pm, firtoolOptions,
+                                                (*outputFile)->os())))
+        return failure();
       break;
     case OutputSplitVerilog:
-      pm.addPass(createExportSplitVerilogPass(outputFilename));
+      if (failed(firtool::populateExportSplitVerilog(pm, firtoolOptions,
+                                                     outputFilename)))
+        return failure();
       break;
     case OutputIRVerilog:
       // Run the ExportVerilog pass to get its lowering, but discard the output.
-      pm.addPass(createExportVerilogPass(llvm::nulls()));
+      if (failed(firtool::populateExportVerilog(pm, firtoolOptions,
+                                                llvm::nulls())))
+        return failure();
       break;
     }
 
     // Run final IR mutations to clean it up after ExportVerilog and before
     // emitting the final MLIR.
     if (!mlirOutFile.empty())
-      pm.addPass(firrtl::createFinalizeIRPass());
+      if (failed(firtool::populateFinalizeIR(pm, firtoolOptions)))
+        return failure();
   }
 
   if (failed(pm.run(module.get())))

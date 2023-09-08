@@ -3,6 +3,7 @@ add_circt_library(CIRCTFirtool
 
   LINK_LIBS PUBLIC
   CIRCTExportChiselInterface
+  CIRCTExportVerilog
   CIRCTFIRRTLToHW
   CIRCTFIRRTLTransforms
   CIRCTHWTransforms
