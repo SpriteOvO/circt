@@ -311,6 +311,10 @@ LogicalResult populatePrepareForExportVerilog(mlir::PassManager &pm,
 
 LogicalResult populateExportVerilog(mlir::PassManager &pm,
                                     const FirtoolOptions &opt,
+                                    std::unique_ptr<llvm::raw_ostream> os);
+
+LogicalResult populateExportVerilog(mlir::PassManager &pm,
+                                    const FirtoolOptions &opt,
                                     llvm::raw_ostream &os);
 
 LogicalResult populateExportSplitVerilog(mlir::PassManager &pm,
