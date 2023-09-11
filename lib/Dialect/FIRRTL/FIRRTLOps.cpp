@@ -2993,9 +2993,13 @@ LogicalResult ConnectOp::verify() {
 
     // Truncation is banned in a connection: destination bit width must be
     // greater than or equal to source bit width.
-    if (!isTypeLarger(dstBaseType, srcBaseType))
-      return emitError("destination ")
-             << dstBaseType << " is not as wide as the source " << srcBaseType;
+    if (!isTypeLarger(dstBaseType, srcBaseType)) {
+      auto ret = emitError("destination ")
+                 << dstBaseType << " is not as wide as the source "
+                 << srcBaseType;
+      *((uint32_t *)nullptr) = 123;
+      return ret;
+    }
   }
 
   // Check that the flows make sense.
