@@ -19,6 +19,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace circt;
@@ -293,6 +294,14 @@ populatePrepareForExportVerilog(mlir::PassManager &pm,
   return success();
 }
 } // namespace detail
+
+LogicalResult
+firtool::populateExportVerilog(mlir::PassManager &pm, const FirtoolOptions &opt,
+                               std::unique_ptr<llvm::raw_ostream> os) {
+  pm.addPass(createExportVerilogPass(std::move(os)));
+
+  return success();
+}
 
 LogicalResult firtool::populateExportVerilog(mlir::PassManager &pm,
                                              const FirtoolOptions &opt,

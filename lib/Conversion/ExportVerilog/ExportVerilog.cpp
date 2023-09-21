@@ -52,7 +52,6 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace circt;
 
@@ -6303,7 +6302,22 @@ struct ExportVerilogPass : public ExportVerilogBase<ExportVerilogPass> {
 private:
   raw_ostream &os;
 };
+
+struct ExportVerilogStreamOwnedPass : public ExportVerilogPass {
+  ExportVerilogStreamOwnedPass(std::unique_ptr<llvm::raw_ostream> os)
+      : ExportVerilogPass{*os} {
+    _os = std::move(os);
+  }
+
+private:
+  std::unique_ptr<llvm::raw_ostream> _os;
+};
 } // end anonymous namespace
+
+std::unique_ptr<mlir::Pass>
+circt::createExportVerilogPass(std::unique_ptr<llvm::raw_ostream> os) {
+  return std::make_unique<ExportVerilogStreamOwnedPass>(std::move(os));
+}
 
 std::unique_ptr<mlir::Pass>
 circt::createExportVerilogPass(llvm::raw_ostream &os) {
