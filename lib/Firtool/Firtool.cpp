@@ -95,6 +95,7 @@ LogicalResult firtool::populateCHIRRTLToLowFIRRTL(mlir::PassManager &pm,
       !opt.shouldDisableHoistingHWPassthrough()));
   pm.nest<firrtl::CircuitOp>().addPass(firrtl::createProbeDCEPass());
 
+  fprintf(stderr, "opt.shouldDedup(): %d\n", opt.shouldDedup());
   if (opt.shouldDedup())
     pm.nest<firrtl::CircuitOp>().addPass(firrtl::createDedupPass());
 
@@ -677,7 +678,7 @@ circt::firtool::FirtoolOptions::FirtoolOptions()
       disableAnnotationsClassless(false), lowerAnnotationsNoRefTypePorts(false),
       preserveAggregate(firrtl::PreserveAggregate::None),
       preserveMode(firrtl::PreserveValues::None), enableDebugInfo(false),
-      buildMode(BuildModeRelease), disableOptimization(false),
+      buildMode(BuildModeDefault), disableOptimization(false),
       exportChiselInterface(false), chiselInterfaceOutDirectory(""),
       vbToBV(false), noDedup(false), companionMode(firrtl::CompanionMode::Bind),
       disableAggressiveMergeConnections(false),
