@@ -314,6 +314,7 @@ LogicalResult Visitor::visit(FModuleLike mod) {
   mod.insertPorts(newPorts);
   recordChanges(!newPorts.empty());
 
+  fprintf(stderr, "mod->getNumRegions(): %d\n", mod->getNumRegions());
   assert(mod->getNumRegions() == 1);
 
   // (helper to determine/get the body block if present)
