@@ -14,7 +14,11 @@ circuit PrintTest:
     ; CHECK-NEXT:     [[PRINTF_COND:%.+]] = sv.macro.ref @PRINTF_COND_() : () -> i1
     ; CHECK-NEXT:     [[COND:%.+]] = comb.and bin [[PRINTF_COND]], %cond : i1
     ; CHECK-NEXT:     sv.if [[COND]] {
-    ; CHECK-NEXT:       sv.fwrite %c-2147483646_i32, "test %d\0A"(%var) : i32
+    ; CHECK-NEXT:       [[filename:%.+]] = sv.constantStr "fwrite.txt"
+    ; CHECK-NEXT:       [[mode:%.+]] = sv.constantStr "a"
+    ; CHECK-NEXT:       [[fd:%.+]] = sv.system "fopen"([[filename]], [[mode]]) : (!hw.string, !hw.string) -> i32
+    ; CHECK-NEXT:       sv.fwrite [[fd]], "test %d\0A"(%var) : i32
+    ; CHECK-NEXT:       sv.system "fclose"([[fd]]) : (i32) -> none
     ; CHECK-NEXT:     }
     ; CHECK-NEXT:   }
     ; CHECK-NEXT: }

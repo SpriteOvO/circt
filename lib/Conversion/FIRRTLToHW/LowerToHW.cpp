@@ -787,8 +787,7 @@ void FIRRTLModuleLowering::lowerFileHeader(CircuitOp op,
 
   // Helper function to emit #ifndef guard.
   auto emitGuard = [&](const char *guard, llvm::function_ref<void(void)> body) {
-    b.create<sv::IfDefOp>(
-        guard, []() {}, body);
+    b.create<sv::IfDefOp>(guard, []() {}, body);
   };
 
   if (state.usedPrintfCond) {
@@ -2534,8 +2533,7 @@ void FIRRTLLowering::addToAlwaysBlock(sv::EventControl clockEdge, Value clock,
       auto createIfOp = [&]() {
         // It is weird but intended. Here we want to create an empty sv.if
         // with an else block.
-        insideIfOp = builder.create<sv::IfOp>(
-            reset, []() {}, []() {});
+        insideIfOp = builder.create<sv::IfOp>(reset, []() {}, []() {});
       };
       if (resetStyle == ::ResetType::AsyncReset) {
         sv::EventControl events[] = {clockEdge, resetEdge};
@@ -4360,9 +4358,18 @@ LogicalResult FIRRTLLowering::visitStmt(PrintFOp op) {
       ifCond = builder.createOrFold<comb::AndOp>(ifCond, cond, true);
 
       addIfProceduralBlock(ifCond, [&]() {
-        // Emit the sv.fwrite, writing to stderr by default.
-        Value fdStderr = builder.create<hw::ConstantOp>(APInt(32, 0x80000002));
-        builder.create<sv::FWriteOp>(fdStderr, op.getFormatString(), operands);
+        auto fd = builder.create<sv::SystemFunctionOp>(
+            lowerType(SIntType::get(builder.getContext(), 32)),
+            builder.getStringAttr("fopen"),
+            ValueRange{
+                builder.create<sv::ConstantStrOp>("fwrite.txt"),
+                builder.create<sv::ConstantStrOp>("a"),
+            });
+        builder.create<sv::FWriteOp>(fd.getResult(), op.getFormatString(),
+                                     operands);
+        builder.create<sv::SystemFunctionOp>(
+            NoneType::get(builder.getContext()),
+            builder.getStringAttr("fclose"), ValueRange{fd});
       });
     });
   });

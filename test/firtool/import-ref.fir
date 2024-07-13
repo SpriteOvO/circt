@@ -15,7 +15,7 @@ circuit TestHarness:
     inst dut of DUT
     dut.clock <= clock
 
-    ; CHECK: fwrite
+    ; CHECK: $fwrite
     ; CHECK-SAME: "%x", TestHarness.dut.`ref_DUT_read)
     printf(clock, UInt<1>(1) "%x", read(dut.read))
     ; CHECK: initial

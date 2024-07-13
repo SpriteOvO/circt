@@ -343,20 +343,29 @@ firrtl.circuit "Simple"   attributes {annotations = [{class =
     // CHECK-NEXT:     %PRINTF_COND_ = sv.macro.ref @PRINTF_COND_() : () -> i1
     // CHECK-NEXT:     [[AND:%.+]] = comb.and bin %PRINTF_COND_, %reset
     // CHECK-NEXT:     sv.if [[AND]] {
-    // CHECK-NEXT:       [[FD:%.+]] = hw.constant -2147483646 : i32
+    // CHECK-NEXT:       [[FILENAME:%.+]] = sv.constantStr "fwrite.txt"
+    // CHECK-NEXT:       [[MODE:%.+]] = sv.constantStr "a"
+    // CHECK-NEXT:       [[FD:%.+]] = sv.system "fopen"([[FILENAME]], [[MODE]]) : (!hw.string, !hw.string) -> i32
     // CHECK-NEXT:       sv.fwrite [[FD]], "No operands!\0A"
+    // CHECK-NEXT:       sv.system "fclose"([[FD]]) : (i32) -> none
     // CHECK-NEXT:     }
     // CHECK-NEXT:     %PRINTF_COND__0 = sv.macro.ref @PRINTF_COND_() : () -> i1
     // CHECK-NEXT:     [[AND:%.+]] = comb.and bin %PRINTF_COND__0, %reset : i1
     // CHECK-NEXT:     sv.if [[AND]] {
-    // CHECK-NEXT:       [[FD:%.+]] = hw.constant -2147483646 : i32
+    // CHECK-NEXT:       [[FILENAME:%.+]] = sv.constantStr "fwrite.txt"
+    // CHECK-NEXT:       [[MODE:%.+]] = sv.constantStr "a"
+    // CHECK-NEXT:       [[FD:%.+]] = sv.system "fopen"([[FILENAME]], [[MODE]]) : (!hw.string, !hw.string) -> i32
     // CHECK-NEXT:       sv.fwrite [[FD]], "Hi %x %x\0A"([[ADD]], %b) : i5, i4
+    // CHECK-NEXT:       sv.system "fclose"([[FD]]) : (i32) -> none
     // CHECK-NEXT:     }
     // CHECK-NEXT:     %PRINTF_COND__1 = sv.macro.ref @PRINTF_COND_() : () -> i1
     // CHECK-NEXT:     [[AND:%.+]] = comb.and bin %PRINTF_COND__1, %reset : i1
     // CHECK-NEXT:     sv.if [[AND]] {
-    // CHECK-NEXT:       [[FD:%.+]] = hw.constant -2147483646 : i32
+    // CHECK-NEXT:       [[FILENAME:%.+]] = sv.constantStr "fwrite.txt"
+    // CHECK-NEXT:       [[MODE:%.+]] = sv.constantStr "a"
+    // CHECK-NEXT:       [[FD:%.+]] = sv.system "fopen"([[FILENAME]], [[MODE]]) : (!hw.string, !hw.string) -> i32
     // CHECK-NEXT:       sv.fwrite [[FD]], "Hi signed %d %d\0A"([[SUMSIGNED]], [[DSIGNED]]) : i5, i4
+    // CHECK-NEXT:       sv.system "fclose"([[FD]]) : (i32) -> none
     // CHECK-NEXT:     }
     // CHECK-NEXT:   }
     // CHECK-NEXT: }
